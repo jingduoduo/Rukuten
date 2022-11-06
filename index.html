@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<body>
+    <div>
+      <div>
+        <div>1</div>
+        <div>2</div>
+      </div>
+      <div>3</div>
+      <div style="display: none;">4</div>
+    </div>
+    <ul>
+      <li>1</li>
+      <li>2</li>
+    </ul>
+  </body>
+  <script type="text/javascript">
+  function mountObserver () {
+    if (!window.MutationObserver) {
+      // 不支持 MutationObserver 的话
+      console.warn('MutationObserver 不支持，首屏时间无法被采集');
+      return;
+    }
+    
+    // 每次 dom 结构改变时，都会调用里面定义的函数
+    const observer = new window.MutationObserver(() => {
+      const time = getTimestamp() - this.startTime; // 当前时间 - 性能开始计算时间
+      
+      const body = document.querySelector('body');
+      let score = 0;
+      
+      if (body) {
+        score = traverseEl(body, 1, false);
+        this.observerData.push({ score, time });
+      } else {
+        this.observerData.push({ score: 0, time });
+      }
+    });
+    
+    // 设置观察目标，接受两个参数: target：观察目标，options：通过对象成员来设置观察选项
+    // 设为 childList: true, subtree: true 表示用来监听 DOM 节点插入、删除和修改时
+    observer.observe(document, { childList: true, subtree: true });
+    
+    this.observer = observer;
+ 
+   
+    if (document.readyState === 'complete') {
+      // MutationObserver监听的最大时间，10秒，超过 10 秒将强制结束
+      this.unmountObserver(10000);
+    } else {
+      win.addEventListener(
+        'load',
+        () => {
+          this.unmountObserver(10000);
+        },
+        false
+      );
+    }
+  }
+function getTimestamp(){
+  return Date.now();
+}
+function traverseEl (element, layer, identify) {
+  // 窗口可视高度
+  const height = win.innerHeight || 0;
+  let score = 0;
+  const tagName = element.tagName;
+
+  if (
+    tagName !== 'SCRIPT' &&
+    tagName !== 'STYLE' &&
+    tagName !== 'META' &&
+    tagName !== 'HEAD'
+  ) {
+    const len = element.children ? element.children.length : 0;
+
+    if (len > 0) {
+      for (let children = element.children, i = len - 1; i >= 0; i--) {
+        score += traverseEl(children[i], layer + 1, score > 0);
+      }
+    }
+
+    // 如果元素高度超出屏幕可视高度直接返回 0 分
+    if (score <= 0 && !identify) {
+      if (
+        element.getBoundingClientRect &&
+        element.getBoundingClientRect().top >= height
+      ) {
+        return 0;
+      }
+    }
+    score += 1 + 0.5 * layer;
+  }
+  console.log(score);
+  return score;
+}
+mountObserver();
+</script>
+</html>
